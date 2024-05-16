@@ -114,14 +114,37 @@ def create_user():
     gmail = request.form["gmail"]
     
     conn = pool.getconn()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cursor.execute(command, vars=[name, gmail])
     conn.commit()
+    pool.putconn(conn)
 
     result = cursor.fetchall()
 
     return app.make_response(result)
 
+@app.get("/categories")
+def get_categories():
+    conn = pool.getconn()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor.execute("SELECT * FROM categories;")
+    result = cursor.fetchall()
+    pool.putconn(conn)
+    return app.make_response(result)
+
+
+@app.post("/categories")
+def create_category():
+    command = "INSERT INTO categories (category_name) VALUES(%s) RETURNING *;"
+    category_name = request.form['category_name']
+    conn = pool.getconn()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cursor.execute(command, vars=[category_name])
+    conn.commit()
+    pool.putconn(conn)
+
+    return app.make_response(cursor.fetchall())
 
 if __name__ == '__main__':
     print("Server started...")
