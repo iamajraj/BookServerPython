@@ -64,6 +64,7 @@ def get_users_with_relations():
                     users.id,
                     users.gmail,
                     jsonb_agg(jsonb_build_object(
+                        'book_id', book_categories_subquery.bookId,
                         'book_name', book_categories_subquery.book_name,
                         'categories', book_categories_subquery.categories_array
                     )) AS books_with_categories
@@ -72,16 +73,20 @@ def get_users_with_relations():
                 LEFT JOIN (
                     SELECT
                         authorId,
+                        books.id as bookId,
                         book_name,
-                        jsonb_agg(categories.category_name) AS categories_array
+                        jsonb_agg(jsonb_build_object(
+                            'category_id', categories.id,
+                            'category_name', categories.category_name
+                        )) AS categories_array
                     FROM
                         books
-                    LEFT JOIN
+                   LEFT  JOIN
                         books_categories AS bc ON bc.book_id = books.id
-                    LEFT JOIN
+                   LEFT  JOIN
                         categories ON categories.id = bc.category_id
                     GROUP BY
-                        authorId, book_name
+                        authorId, book_name, bookId
                 ) AS book_categories_subquery ON users.id = book_categories_subquery.authorId
                 GROUP BY
                     users.id, users.gmail;
@@ -97,7 +102,6 @@ def get_users_with_relations():
         print(error)
     finally:
         pool.putconn(conn)
-
 
 app = Flask(__name__)
 
@@ -132,7 +136,6 @@ def get_categories():
     pool.putconn(conn)
     return app.make_response(result)
 
-
 @app.post("/categories")
 def create_category():
     command = "INSERT INTO categories (category_name) VALUES(%s) RETURNING *;"
@@ -146,6 +149,15 @@ def create_category():
 
     return app.make_response(cursor.fetchall())
 
+
+@app.put("/set-post-category")
+def set_book_category():
+    book_id = request.form['book_id']
+    cat_id = request.form['cat_id']
+
+    # set categories to the corresponding book # TODO - first need to have book create route
+
+    return app.make_response({"book_id": book_id, "cat_id": cat_id})
 if __name__ == '__main__':
     print("Server started...")
     app.run("localhost", 4000)
